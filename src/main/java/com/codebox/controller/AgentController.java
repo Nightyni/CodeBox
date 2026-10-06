@@ -66,7 +66,7 @@ public class AgentController extends BaseController {
         if (!request.isApproved()) {
             pendingActionService.cancel(action.getId());
             return new AgentResponse("已取消该操作，未对数据做任何修改。",
-                    List.of(), null, List.of(), 0, 0, 0);
+                    List.of(), null, List.of(), List.of(), 0, 0, 0);
         }
         return snippetAgent.executeApproved(user.getId(), action);
     }

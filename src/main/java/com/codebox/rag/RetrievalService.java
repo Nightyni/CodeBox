@@ -33,8 +33,8 @@ public class RetrievalService {
     private final EmbeddingModel embeddingModel;
     private final VectorMath vectorMath;
 
+    /** snippetId -> vector, refreshed from the database on every retrieval. */
     private final Map<Long, float[]> cache = new HashMap<>();
-    private volatile boolean cacheLoaded = false;
 
     public RetrievalService(SnippetMapper snippetMapper,
                             SnippetEmbeddingMapper embeddingMapper,
@@ -123,33 +123,64 @@ public class RetrievalService {
         for (Snippet s : snippetMapper.findAllByUser(userId)) snippets.put(s.getId(), s);
 
         List<Scored> scored = new ArrayList<>();
+        int incompatible = 0;
         for (Map.Entry<Long, float[]> entry : cache.entrySet()) {
             Snippet snippet = snippets.get(entry.getKey());
             if (snippet == null) continue;
+
+            // Vectors from a different embedding model are not comparable - cosine
+            // across widths is meaningless. Skipping them is important because the
+            // failure is otherwise silent: swapping the configured embedding provider
+            // (or falling back to the local vectorizer during an outage) would leave
+            // stale vectors in place and quietly return nonsense ordering.
+            if (entry.getValue().length != queryVector.length) {
+                incompatible++;
+                continue;
+            }
+
             double score = vectorMath.cosine(queryVector, entry.getValue());
             if (score >= minScore) scored.add(new Scored(snippet, score));
         }
+        if (incompatible > 0) {
+            log.warn("Skipped {} cached vectors: their width does not match the current "
+                            + "embedding model '{}' (query width {}). "
+                            + "Call /api/ask/reindex to rebuild them.",
+                    incompatible, embeddingModel.name(), queryVector.length);
+        }
+
         scored.sort(Comparator.comparingDouble(Scored::score).reversed());
         return scored.size() > topK ? scored.subList(0, topK) : scored;
     }
 
+    /**
+     * Refreshes the cache from the database.
+     *
+     * Implemented as a full reload on every retrieval rather than a one-shot lazy load.
+     * The previous "load once, never again" approach had two problems: it trusted a
+     * boolean flag as the source of truth (so anything that changed the rows without
+     * going through this class left the cache permanently stale), and it made the
+     * behaviour hard to reason about. A personal library is small, so a reload is a
+     * cheap single query - correctness beats the micro-optimisation.
+     */
     private synchronized void ensureLoaded(Long userId) {
-        if (cacheLoaded) return;
         try {
             List<SnippetEmbedding> stored = embeddingMapper.findByUser(userId);
+            Map<Long, float[]> loaded = new HashMap<>();
             for (SnippetEmbedding e : stored) {
-                cache.put(e.getSnippetId(), vectorMath.deserialize(e.getVector()));
+                loaded.put(e.getSnippetId(), vectorMath.deserialize(e.getVector()));
             }
-            cacheLoaded = true;
-            log.info("Loaded {} embeddings into the retrieval cache", cache.size());
+            cache.clear();
+            cache.putAll(loaded);
         } catch (Exception e) {
-            log.warn("Could not load embeddings (will embed on demand): {}", e.toString());
+            // Keep whatever is already cached: a transient DB error should not blank
+            // out retrieval entirely.
+            log.warn("Could not refresh embeddings from the database: {}", e.toString());
         }
     }
 
+    /** Drops the in-memory cache; the next retrieval reloads from the database. */
     public synchronized void invalidateCache() {
         cache.clear();
-        cacheLoaded = false;
     }
 
     /** Text actually embedded for a snippet: title + summary + tags + code. */

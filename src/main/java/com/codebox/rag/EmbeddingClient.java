@@ -27,6 +27,11 @@ public class EmbeddingClient implements EmbeddingModel {
     private final LocalHashEmbeddingModel fallback = new LocalHashEmbeddingModel();
 
     private volatile RestClient client;
+    /**
+     * Width of the vectors the configured provider actually returns, recorded on first
+     * successful call. Zero means "not observed yet".
+     */
+    private volatile int observedDimensions;
 
     public EmbeddingClient(LlmProperties properties, RestClient.Builder builder) {
         this.properties = properties;
@@ -48,7 +53,14 @@ public class EmbeddingClient implements EmbeddingModel {
                     .retrieve()
                     .body(Map.class);
             float[] vector = parseEmbedding(response);
-            return vector.length > 0 ? vector : fallback.embed(text);
+            if (vector.length > 0) {
+                // Record the provider's real width so dimensions() stops reporting the
+                // local fallback's width once a real service is in use.
+                observedDimensions = vector.length;
+                return vector;
+            }
+            log.warn("Embedding endpoint returned no vector; using local fallback");
+            return fallback.embed(text);
         } catch (Exception e) {
             log.warn("Embedding call failed, using local fallback: {}", e.toString());
             return fallback.embed(text);
@@ -98,9 +110,27 @@ public class EmbeddingClient implements EmbeddingModel {
                 : fallback.name();
     }
 
+    /**
+     * Actual vector width, learned from the first successful call.
+     *
+     * This used to return the local fallback's width unconditionally, which lied as soon
+     * as a real embedding service was configured (e.g. 1024 vs 512). Returning a wrong
+     * number is worse than returning none: the retrieval layer relies on it to spot
+     * vectors produced by a different model, which would otherwise be silently
+     * incomparable and make search return junk.
+     */
     @Override
     public int dimensions() {
-        return fallback.dimensions();
+        if (!properties.hasEmbeddingEndpoint()) {
+            return fallback.dimensions();
+        }
+        int observed = observedDimensions;
+        return observed > 0 ? observed : fallback.dimensions();
+    }
+
+    /** @return the width observed from the provider so far, or 0 when unknown. */
+    public int observedDimensions() {
+        return observedDimensions;
     }
 }
 

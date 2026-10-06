@@ -17,10 +17,14 @@ import java.util.Map;
 /**
  * AI capability: produce an improved version of a snippet.
  *
- * Deliberately READ-only: it returns the improved code plus a change list, and does
- * NOT write anything. Saving the result is a separate, user-confirmed step via
- * create_snippet, which keeps the original version intact and makes AI output
- * reviewable before it becomes data.
+ * Deliberately READ-only: it returns the improved code, the change list and a
+ * line-level diff, but writes nothing. Saving is a separate, user-confirmed step via
+ * create_snippet, which keeps the original intact and makes AI output reviewable
+ * before it becomes data.
+ *
+ * The diff is computed here rather than in the browser so that "what changed" is part
+ * of the tool's contract - any consumer of this tool gets the same answer, and a later
+ * write step can be diffed against exactly what the user was shown.
  */
 @Component
 public class OptimizeSnippetTool implements AgentTool {
@@ -37,8 +41,9 @@ public class OptimizeSnippetTool implements AgentTool {
     public ToolSpec spec() {
         return new ToolSpec(
                 "optimize_snippet",
-                "针对指定代码片段生成一个优化版本，并列出改动说明。当用户要求优化、改进、重构代码时使用。"
-                        + "该工具不会保存结果；如果用户想保留，需要再用 create_snippet 新建片段。",
+                "针对指定代码片段生成一个优化版本，返回改动说明、优化后的完整代码以及逐行差异（diff）。"
+                        + "当用户要求优化、改进、重构代码时使用。该工具不会保存结果；"
+                        + "如果用户想保留，需要再用 create_snippet 新建片段。",
                 ToolSchema.object(
                         ToolSchema.props()
                                 .put("id", ToolSchema.integer("要优化的片段 id"))
@@ -66,17 +71,24 @@ public class OptimizeSnippetTool implements AgentTool {
             return ToolResult.error("找不到 id=" + id + " 的代码片段（可能不存在或不属于当前用户）");
         }
 
-        String optimized = codeAnalyzer.optimize(snippet, focus);
-        if (optimized == null || optimized.isBlank()) {
-            return ToolResult.error("代码优化失败（模型不可用或调用出错）。"
+        String originalCode = snippet.getContent() == null ? "" : snippet.getContent();
+        OptimizedCodeResult optimized = codeAnalyzer.optimizeStructured(snippet, focus, originalCode);
+
+        if (!optimized.hasCode()) {
+            return ToolResult.error("代码优化失败（模型不可用、调用出错，或未按要求返回代码块）。"
                     + "请告知用户当前无法完成优化，不要编造优化结果。");
         }
+
+        DiffEngine.DiffResult diff = DiffEngine.diff(originalCode, optimized.optimizedCode());
 
         Map<String, Object> payload = new LinkedHashMap<>();
         payload.put("snippetId", id);
         payload.put("originalTitle", snippet.getTitle());
         payload.put("language", snippet.getLanguage());
-        payload.put("optimizedCode", optimized);
+        payload.put("changes", optimized.changes());
+        payload.put("optimizedCode", optimized.optimizedCode());
+        payload.put("diff", diff.lines());
+        payload.put("diffSummary", Map.of("added", diff.added(), "removed", diff.removed()));
         payload.put("note", "结果尚未保存。用户确认后，请调用 create_snippet 保存为新片段，"
                 + "标题建议为「原标题 - AI优化版」，以保留原始版本。");
         return json.ok(payload);

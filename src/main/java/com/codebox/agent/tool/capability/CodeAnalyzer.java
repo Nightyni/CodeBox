@@ -4,6 +4,8 @@ import com.codebox.entity.Snippet;
 import com.codebox.llm.ChatModel;
 import com.codebox.rag.AnswerGenerator;
 import com.codebox.service.SnippetService;
+
+import java.util.List;
 import org.springframework.stereotype.Service;
 
 /**
@@ -33,19 +35,22 @@ public class CodeAnalyzer {
     private static final String OPTIMIZE_SYSTEM = """
             你是一名资深工程师。请针对给定的代码给出一个改进版本。
 
-            输出必须严格按下面的格式，不要多余解释：
+            必须严格按下面的两部分输出，顺序不能颠倒，不要写任何开场白或结尾寒暄：
+
             ### 改动说明
             - 逐条说明改了什么、为什么
+
             ### 优化后的代码
             ```
             （完整的、可直接使用的代码，不要省略）
             ```
 
             要求：
-            1. 保持原有的语言与用途，不要改变业务语义。
-            2. 只做必要的改进，不要为了炫技重写。
-            3. 如果代码本身已经足够好，就说明“无需优化”，并给出当前代码即可。
-            4. 用中文写改动说明。
+            1. 代码块里只放代码，不要放解释性的注释段落或 markdown。
+            2. 保持原有的语言与用途，不要改变业务语义。
+            3. 只做必要的改进，不要为了炫技重写。
+            4. 如果代码本身已经足够好，就在改动说明里写“无需优化”，并原样给出当前代码。
+            5. 用中文写改动说明，每条一行，以 "- " 开头。
             """;
 
     private final ChatModel chatModel;
@@ -69,6 +74,27 @@ public class CodeAnalyzer {
         String prompt = describe(snippet)
                 + (focus == null || focus.isBlank() ? "" : "\n\n优化重点：" + focus);
         return chatModel.complete(OPTIMIZE_SYSTEM, prompt);
+    }
+
+    /**
+     * Optimises and returns the reply as structured data plus a line-level diff.
+     *
+     * @param originalCode the code the diff is computed against - passed in rather than
+     *                     re-read from the snippet so the diff always compares exactly
+     *                     what the model was shown
+     */
+    public OptimizedCodeResult optimizeStructured(Snippet snippet, String focus, String originalCode) {
+        String raw = optimize(snippet, focus);
+        if (raw == null || raw.isBlank()) {
+            return new OptimizedCodeResult(List.of(), "", "");
+        }
+
+        OptimizedCodeResult parsed = CodeOptimizationParser.parse(raw);
+        if (!parsed.hasCode()) {
+            return parsed;
+        }
+        // Give the caller both sides so it can build the diff without re-querying.
+        return new OptimizedCodeResult(parsed.changes(), parsed.optimizedCode(), parsed.rawResponse());
     }
 
     private String describe(Snippet snippet) {

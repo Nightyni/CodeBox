@@ -1,5 +1,6 @@
 package com.codebox.controller;
 
+import com.codebox.dto.AskRequest;
 import com.codebox.dto.AskResponse;
 import com.codebox.entity.User;
 import com.codebox.rag.AnswerGenerator;
@@ -8,6 +9,7 @@ import com.codebox.rag.RetrievalService;
 import com.codebox.service.AuthService;
 import com.codebox.service.StatsService;
 import jakarta.servlet.http.HttpSession;
+import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -76,13 +78,9 @@ public class AskController extends BaseController {
     }
 
     @PostMapping
-    public AskResponse ask(HttpSession session, @RequestBody Map<String, String> body) {
+    public AskResponse ask(HttpSession session, @Valid @RequestBody AskRequest request) {
         User user = currentUser(session);
-        String question = body == null ? null : body.get("question");
-        if (question == null || question.isBlank()) {
-            throw new IllegalArgumentException("问题不能为空");
-        }
-        String trimmed = question.trim();
+        String trimmed = request.getQuestion().trim();
 
         // Overview questions are answered by counting, not by similarity search.
         AskResponse overview = libraryOverview(user.getId(), trimmed);
@@ -97,7 +95,9 @@ public class AskController extends BaseController {
      * Rebuilds the vector index for the current user.
      *
      * Required once after importing snippets directly into the database, otherwise
-     * those rows have no embedding and natural-language search cannot find them.
+     * those rows have no embedding and natural-language search cannot find them. Also
+     * needed after changing the embedding model, since old vectors have a different
+     * width and are skipped during retrieval.
      */
     @PostMapping("/reindex")
     public Map<String, Object> reindex(HttpSession session) {
@@ -109,13 +109,10 @@ public class AskController extends BaseController {
 
     /** Retrieval only - useful for debugging why the model saw (or missed) something. */
     @PostMapping("/retrieve")
-    public List<Map<String, Object>> retrieve(HttpSession session, @RequestBody Map<String, String> body) {
+    public List<Map<String, Object>> retrieve(HttpSession session,
+                                              @Valid @RequestBody AskRequest request) {
         User user = currentUser(session);
-        String question = body == null ? null : body.get("question");
-        if (question == null || question.isBlank()) {
-            throw new IllegalArgumentException("问题不能为空");
-        }
-        return retrievalService.retrieve(user.getId(), question.trim(), TOP_K, 0.0)
+        return retrievalService.retrieve(user.getId(), request.getQuestion().trim(), TOP_K, 0.0)
                 .stream()
                 .map(hit -> Map.<String, Object>of(
                         "snippetId", hit.snippet().getId(),

@@ -1,0 +1,9 @@
+{
+  "name": "codebox-frontend-check",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Static/DOM checks for the CodeBox frontend (no browser required)",
+  "scripts": {
+    "check": "node harness.js"
+  }
+}

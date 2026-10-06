@@ -73,15 +73,16 @@ public class SnippetAgent {
             return new AgentResponse(
                     "还没有配置大模型 API Key，AI 助手无法使用。\n"
                             + "把 key 填到 config/application-local.yml 的 codebox.llm.api-key 后重启即可。",
-                    List.of(), null, tail(messages), 0, 0, elapsed(start));
+                    List.of(), null, tail(messages), List.of(), 0, 0, elapsed(start));
         }
         if (!chatModel.supportsTools()) {
             return new AgentResponse(
                     "当前模型不支持工具调用，无法使用 AI 助手（需要支持 function calling 的模型）。",
-                    List.of(), null, tail(messages), 0, 0, elapsed(start));
+                    List.of(), null, tail(messages), List.of(), 0, 0, elapsed(start));
         }
 
         List<AgentTraceStep> trace = new ArrayList<>();
+        List<AgentResponse.ToolResultBlock> toolResults = new ArrayList<>();
         int toolCallCount = 0;
 
         for (int step = 1; step <= MAX_STEPS; step++) {
@@ -92,7 +93,7 @@ public class SnippetAgent {
                 String answer = trace.isEmpty()
                         ? AgentPrompt.TOOL_OUTAGE_NOTE
                         : "抱歉，模型服务调用失败，本轮未能完成。请稍后重试。";
-                return new AgentResponse(answer, trace, null, tail(messages),
+                return new AgentResponse(answer, trace, null, tail(messages), toolResults,
                         toolCallCount, step, elapsed(start));
             }
 
@@ -103,7 +104,7 @@ public class SnippetAgent {
             if (!turn.hasToolCalls()) {
                 return new AgentResponse(
                         turn.hasText() ? turn.content().strip() : "（模型没有返回内容）",
-                        trace, null, tail(messages), toolCallCount, step, elapsed(start));
+                        trace, null, tail(messages), toolResults, toolCallCount, step, elapsed(start));
             }
 
             messages.add(ChatMessage.assistantToolCalls(turn.toolCalls()));
@@ -130,7 +131,7 @@ public class SnippetAgent {
                             : summary;
                     return new AgentResponse(answer, trace,
                             pendingActionService.toView(pending, summary),
-                            tail(messages), toolCallCount, step, elapsed(start));
+                            tail(messages), toolResults, toolCallCount, step, elapsed(start));
                 }
 
                 long toolStart = System.currentTimeMillis();
@@ -141,6 +142,9 @@ public class SnippetAgent {
                 trace.add(AgentTraceStep.tool(step, call.name(),
                         result.success() ? preview(result.text()) : "错误：" + preview(result.text()),
                         toolElapsed));
+                if (result.success()) {
+                    toolResults.add(toBlock(call.name(), result.text()));
+                }
                 messages.add(ChatMessage.toolResult(call.id(), truncate(result.text())));
             }
         }
@@ -149,7 +153,7 @@ public class SnippetAgent {
         return new AgentResponse(
                 "这次请求需要的步骤过多，已达到上限（" + MAX_STEPS + " 步）而停止。"
                         + "请把需求拆得更具体一些，例如直接说明要操作哪一条代码片段。",
-                trace, null, tail(messages), toolCallCount, MAX_STEPS, elapsed(start));
+                trace, null, tail(messages), toolResults, toolCallCount, MAX_STEPS, elapsed(start));
     }
 
     /**
@@ -214,7 +218,7 @@ public class SnippetAgent {
         }
 
         return new AgentResponse(answer, trace, null,
-                List.of(ChatMessage.user("(已确认执行 " + action.getToolName() + ")")),
+                List.of(ChatMessage.user("(已确认执行 " + action.getToolName() + ")")), List.of(),
                 result.success() ? 1 : 0, 1, elapsed(start));
     }
 
@@ -245,6 +249,20 @@ public class SnippetAgent {
         }
     }
 
+    /**
+     * Wraps a tool's JSON output for the client.
+     *
+     * The parsed form is what the UI renders (the diff view needs structure), while the
+     * raw text is kept so a non-JSON result is never lost.
+     */
+    private AgentResponse.ToolResultBlock toBlock(String toolName, String text) {
+        try {
+            Object parsed = objectMapper.readValue(text, Object.class);
+            return new AgentResponse.ToolResultBlock(toolName, parsed, text);
+        } catch (Exception e) {
+            return new AgentResponse.ToolResultBlock(toolName, null, text);
+        }
+    }
     /** Best-effort read of the human-readable "message" field a write tool returns. */
     private String extractMessage(String json) {
         try {
