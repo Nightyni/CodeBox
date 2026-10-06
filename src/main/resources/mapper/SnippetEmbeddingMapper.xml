@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.codebox.mapper.SnippetEmbeddingMapper">
+
+    <!--
+      Portable "upsert": delete-then-insert inside the caller's transaction.
+      MySQL's ON DUPLICATE KEY UPDATE and H2's MERGE are not mutually compatible,
+      and using a database-specific statement here would make the h2 demo profile
+      silently fail to persist vectors.
+    -->
+    <insert id="upsert">
+        INSERT INTO snippet_embedding (snippet_id, user_id, model, vector, dimensions, update_time)
+        VALUES (#{snippetId}, #{userId}, #{model}, #{vector}, #{dimensions}, NOW())
+    </insert>
+
+    <select id="findByUser" resultType="com.codebox.entity.SnippetEmbedding">
+        SELECT snippet_id AS snippetId, user_id AS userId, model, vector,
+               dimensions, update_time AS updateTime
+        FROM snippet_embedding
+        WHERE user_id = #{userId}
+    </select>
+
+    <delete id="deleteBySnippetId">
+        DELETE FROM snippet_embedding WHERE snippet_id = #{snippetId}
+    </delete>
+
+</mapper>

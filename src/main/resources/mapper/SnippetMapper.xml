@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.codebox.mapper.SnippetMapper">
+
+    <sql id="columns">
+        id, user_id AS userId, title, content, language, tags, summary,
+        use_count AS useCount, create_time AS createTime, update_time AS updateTime
+    </sql>
+
+    <!-- Shared WHERE clause so search and count can never drift apart. -->
+    <sql id="searchWhere">
+        user_id = #{userId}
+        <if test="keyword != null and keyword != ''">
+            AND (title LIKE CONCAT('%', #{keyword}, '%')
+                 OR content LIKE CONCAT('%', #{keyword}, '%')
+                 OR summary LIKE CONCAT('%', #{keyword}, '%')
+                 OR tags LIKE CONCAT('%', #{keyword}, '%'))
+        </if>
+        <if test="language != null and language != ''">
+            AND language = #{language}
+        </if>
+        <if test="tags != null and tags != ''">
+            AND tags LIKE CONCAT('%', #{tags}, '%')
+        </if>
+    </sql>
+
+    <select id="findById" resultType="com.codebox.entity.Snippet">
+        SELECT <include refid="columns"/>
+        FROM code_snippet
+        WHERE id = #{id} AND user_id = #{userId}
+    </select>
+
+    <select id="search" resultType="com.codebox.entity.Snippet">
+        SELECT <include refid="columns"/>
+        FROM code_snippet
+        WHERE <include refid="searchWhere"/>
+        ORDER BY create_time DESC, id DESC
+        LIMIT #{pageSize} OFFSET #{offset}
+    </select>
+
+    <select id="countSearch" resultType="long">
+        SELECT COUNT(*) FROM code_snippet WHERE <include refid="searchWhere"/>
+    </select>
+
+    <select id="findAllByUser" resultType="com.codebox.entity.Snippet">
+        SELECT <include refid="columns"/>
+        FROM code_snippet
+        WHERE user_id = #{userId}
+        ORDER BY id ASC
+    </select>
+
+    <insert id="insert" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO code_snippet (user_id, title, content, language, tags, summary, use_count, create_time)
+        VALUES (#{userId}, #{title}, #{content}, #{language}, #{tags}, #{summary}, 0, NOW())
+    </insert>
+
+    <update id="update">
+        UPDATE code_snippet
+        SET title = #{title},
+            content = #{content},
+            language = #{language},
+            tags = #{tags},
+            summary = #{summary},
+            update_time = NOW()
+        WHERE id = #{id} AND user_id = #{userId}
+    </update>
+
+    <delete id="delete">
+        DELETE FROM code_snippet WHERE id = #{id} AND user_id = #{userId}
+    </delete>
+
+    <update id="incrementUseCount">
+        UPDATE code_snippet
+        SET use_count = use_count + 1
+        WHERE id = #{id} AND user_id = #{userId}
+    </update>
+
+</mapper>

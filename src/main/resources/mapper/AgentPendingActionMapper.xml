@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.codebox.mapper.AgentPendingActionMapper">
+
+    <insert id="insert" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO agent_pending_action
+            (user_id, tool_call_id, tool_name, arguments, status, create_time, expires_at)
+        VALUES
+            (#{userId}, #{toolCallId}, #{toolName}, #{arguments}, #{status}, #{createTime}, #{expiresAt})
+    </insert>
+
+    <select id="findById" resultType="com.codebox.entity.AgentPendingAction">
+        SELECT id, user_id AS userId, tool_call_id AS toolCallId, tool_name AS toolName,
+               arguments, status, create_time AS createTime, expires_at AS expiresAt
+        FROM agent_pending_action
+        WHERE id = #{id}
+    </select>
+
+    <update id="updateStatus">
+        UPDATE agent_pending_action
+        SET status = #{status}
+        WHERE id = #{id} AND status = #{fromStatus}
+    </update>
+
+</mapper>

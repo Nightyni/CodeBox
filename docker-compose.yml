@@ -1,0 +1,48 @@
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: codebox-mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: codebox_root
+      MYSQL_DATABASE: codebox
+      MYSQL_USER: codebox
+      MYSQL_PASSWORD: codebox
+    command: >
+      --character-set-server=utf8mb4
+      --collation-server=utf8mb4_unicode_ci
+    ports:
+      - "3307:3306"          # 3307 on the host avoids clashing with a local MySQL
+    volumes:
+      - codebox-mysql-data:/var/lib/mysql
+      # Runs once, on first initialisation of the data volume (schema + demo seed).
+      - ./docker/mysql-init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-uroot", "-pcodebox_root"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+  app:
+    build: .
+    container_name: codebox-app
+    depends_on:
+      mysql:
+        condition: service_healthy
+    environment:
+      CODEBOX_DB_URL: jdbc:mysql://mysql:3306/codebox?useSSL=false&serverTimezone=Asia/Shanghai&characterEncoding=utf8&allowPublicKeyRetrieval=true
+      CODEBOX_DB_USER: codebox
+      CODEBOX_DB_PASSWORD: codebox
+      # Set this in a .env file (never commit a real key).
+      DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY:-}
+      DEEPSEEK_MODEL: ${DEEPSEEK_MODEL:-deepseek-chat}
+      # Optional OpenAI-compatible embedding endpoint; blank = built-in local vectorizer.
+      CODEBOX_EMBEDDING_MODEL: ${CODEBOX_EMBEDDING_MODEL:-}
+      CODEBOX_EMBEDDING_BASE_URL: ${CODEBOX_EMBEDDING_BASE_URL:-}
+      CODEBOX_EMBEDDING_API_KEY: ${CODEBOX_EMBEDDING_API_KEY:-}
+    ports:
+      - "8080:8080"
+    restart: unless-stopped
+
+volumes:
+  codebox-mysql-data:

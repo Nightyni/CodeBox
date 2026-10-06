@@ -1,0 +1,65 @@
+server:
+  port: 8080
+  servlet:
+    session:
+      timeout: 60m
+      cookie:
+        http-only: true      # not readable from JavaScript, mitigates XSS session theft
+        same-site: lax       # blocks cross-site form POSTs (CSRF defence)
+        name: CODEBOX_SESSION
+
+spring:
+  application:
+    name: codebox
+  datasource:
+    url: ${CODEBOX_DB_URL:jdbc:mysql://localhost:3306/codebox?useSSL=false&serverTimezone=Asia/Shanghai&characterEncoding=utf8&allowPublicKeyRetrieval=true}
+    username: ${CODEBOX_DB_USER:root}
+    password: ${CODEBOX_DB_PASSWORD:}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    hikari:
+      maximum-pool-size: 10
+      minimum-idle: 2
+      connection-timeout: 10000
+  jackson:
+    default-property-inclusion: non_null
+    serialization:
+      write-dates-as-timestamps: false
+  sql:
+    init:
+      # Seed scripts contain Chinese text. Without an explicit encoding they are
+      # read with the platform default charset (GBK on Chinese Windows), which
+      # silently stores mojibake in the database.
+      encoding: UTF-8
+
+mybatis:
+  mapper-locations: classpath:mapper/*.xml
+  configuration:
+    map-underscore-to-camel-case: true
+  type-aliases-package: com.codebox.entity
+
+codebox:
+  llm:
+    enabled: ${CODEBOX_LLM_ENABLED:true}
+    base-url: ${DEEPSEEK_BASE_URL:https://api.deepseek.com}
+    # Resolution order (first non-empty wins):
+    #   1. config/application-local.yml  ->  codebox.llm.api-key  (recommended, gitignored)
+    #   2. environment variable DEEPSEEK_API_KEY
+    #   3. CODEBOX_LLM_API_KEY
+    # Leaving it empty is supported: the app runs, retrieval still works, and the
+    # AI answer/tagging features degrade instead of failing.
+    api-key: ${CODEBOX_LLM_API_KEY:${DEEPSEEK_API_KEY:}}
+    model: ${DEEPSEEK_MODEL:deepseek-chat}
+    timeout-seconds: 60
+    # Optional: DeepSeek has no embedding endpoint. Point these at any
+    # OpenAI-compatible embedding provider (SiliconFlow / DashScope / OpenAI).
+    # Left blank, retrieval falls back to the built-in local vectorizer.
+    embedding-model: ${CODEBOX_EMBEDDING_MODEL:}
+    embedding-base-url: ${CODEBOX_EMBEDDING_BASE_URL:}
+    embedding-api-key: ${CODEBOX_EMBEDDING_API_KEY:}
+
+logging:
+  level:
+    com.codebox: INFO
+    # Mapper SQL logging at DEBUG dumps entire embedding vectors (512 floats each),
+    # which floods the console. Keep the mappers at INFO.
+    com.codebox.mapper: INFO

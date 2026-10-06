@@ -1,0 +1,14 @@
+target/
+.legacy-ssm/
+.verify/
+.resume/
+.git/
+.gitignore
+*.md
+*.pdf
+docker-compose.yml
+.env
+.idea/
+*.iml
+.vscode/
+.DS_Store

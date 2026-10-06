@@ -1,0 +1,22 @@
+# Local demo profile: in-memory H2 with seed data, no MySQL and no Docker required.
+#   mvn spring-boot:run -Dspring-boot.run.profiles=h2
+spring:
+  datasource:
+    url: jdbc:h2:mem:codebox;DB_CLOSE_DELAY=-1
+    driver-class-name: org.h2.Driver
+    username: sa
+    password: ""
+  sql:
+    init:
+      mode: always
+      schema-locations: classpath:schema-h2.sql
+
+codebox:
+  llm:
+    # The chat model needs a key; retrieval still works without one.
+    enabled: ${CODEBOX_LLM_ENABLED:true}
+
+logging:
+  level:
+    com.codebox: DEBUG
+    com.codebox.mapper: INFO

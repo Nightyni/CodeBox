@@ -1,0 +1,32 @@
+# Local Maven repository used for sandboxed/offline builds (283MB, safe to delete).
+.m2-local/
+
+# Build output
+target/
+target-fresh/
+bin/
+
+# Superseded CodeBox 1.x (SSM + JSP). Safe to delete once you no longer need it for reference.
+.legacy-ssm/
+legacy-ssm-1.x/
+
+# Secrets - never commit
+.env
+config/application-local.yml
+
+# IDE
+.idea/
+*.iml
+.vscode/
+.settings/
+.classpath
+.project
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Scratch
+.verify/
+.resume/
+*.log
