@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CodeBox · 旧版界面（原生 JS）</title>
+<style>
+  :root{
+    --bg:#0f1115; --panel:#171a21; --panel-2:#1e222b; --border:#2a2f3a;
+    --fg:#e6e8ee; --muted:#9aa3b2; --accent:#5b8cff; --ok:#3ecf8e;
+    --warn:#ffb454; --danger:#ff6b6b;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--fg);
+    font:14px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif}
+  header{display:flex;align-items:center;gap:16px;padding:14px 22px;
+    background:var(--panel);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:10}
+  .brand{font-weight:700;font-size:17px;letter-spacing:.4px}
+  .brand span{color:var(--accent)}
+  .grow{flex:1}
+  .who{color:var(--muted);font-size:13px}
+  main{max-width:none;margin:0;padding:14px 18px}
+  .card{background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:18px}
+
+  /* ---------- 工作区：左业务区 7 / 右 AI 助手 3，中间可拖动 ---------- */
+  .workspace{display:flex;align-items:flex-start;gap:0;min-height:calc(100vh - 90px)}
+  .work-main{flex:1 1 auto;min-width:0;display:flex;flex-direction:column;gap:14px}
+  .work-aside{flex:0 0 auto;width:30%;min-width:300px;max-width:62%;
+    position:sticky;top:76px;height:calc(100vh - 92px);
+    display:flex;flex-direction:column;
+    background:var(--panel);border:1px solid var(--border);border-radius:10px;overflow:hidden}
+  .resizer{flex:0 0 10px;align-self:stretch;cursor:col-resize;position:relative;background:transparent}
+  .resizer::before{content:'';position:absolute;left:4px;top:0;bottom:0;width:2px;
+    background:var(--border);border-radius:2px;transition:.15s}
+  .resizer:hover::before,.resizer.dragging::before{background:var(--accent);width:3px;left:3px}
+  body.resizing{cursor:col-resize;user-select:none}
+
+  .aside-head{display:flex;align-items:center;gap:8px;padding:11px 14px;
+    border-bottom:1px solid var(--border);flex:0 0 auto;flex-wrap:wrap}
+  .aside-title{font-weight:600;font-size:14px}
+  .aside-sub{color:var(--muted);font-size:11px;flex:1;min-width:0}
+  button.small{padding:4px 9px;font-size:11px}
+
+  .thread{flex:1 1 auto;overflow-y:auto;padding:14px;display:flex;flex-direction:column;gap:12px}
+  .hint-box{font-size:12px;color:var(--muted);line-height:1.9;
+    background:var(--panel-2);border:1px dashed var(--border);border-radius:8px;padding:11px 13px}
+
+  .msg{display:flex;flex-direction:column;gap:6px;max-width:100%}
+  .msg-user{align-self:flex-end;align-items:flex-end;max-width:92%}
+  .msg-user .bubble{background:var(--accent);color:#fff;border-radius:10px 10px 2px 10px;
+    padding:8px 12px;font-size:13px;white-space:pre-wrap;overflow-wrap:anywhere}
+  .msg-agent .bubble{background:var(--panel-2);border:1px solid var(--border);
+    border-radius:10px 10px 10px 2px;padding:10px 13px;font-size:13px;
+    white-space:pre-wrap;overflow-wrap:anywhere}
+  .msg-agent .bubble.notice{border-color:#4a3520;background:#241d12;color:var(--warn)}
+  .msg-agent .bubble.error{border-color:#4a2020;background:#241414;color:var(--danger)}
+
+  /* 工具调用轨迹 */
+  .trace{display:flex;flex-direction:column;gap:4px}
+  .trace details{background:var(--bg);border:1px solid var(--border);border-radius:6px;font-size:11px}
+  .trace summary{cursor:pointer;padding:5px 9px;color:var(--ok);font-weight:600;list-style:none}
+  .trace summary::-webkit-details-marker{display:none}
+  .trace summary::before{content:'▸ ';color:var(--muted)}
+  .trace details[open] summary::before{content:'▾ '}
+  .trace .detail{padding:0 10px 8px;color:var(--muted);white-space:pre-wrap;
+    overflow-wrap:anywhere;font-family:ui-monospace,Consolas,monospace}
+
+  /* 引用片段 */
+  .refs{display:flex;gap:6px;flex-wrap:wrap}
+  .ref{background:var(--panel-2);border:1px solid var(--border);border-radius:6px;
+    padding:4px 9px;font-size:11px;cursor:pointer}
+  .ref:hover{border-color:var(--accent)}
+
+  /* 确认框 */
+  .confirm{border:1px solid #4a3520;background:#241d12;border-radius:8px;
+    padding:11px 13px;display:flex;flex-direction:column;gap:8px}
+  .confirm .what{color:var(--warn);font-size:13px;font-weight:600}
+  .confirm .args{font-family:ui-monospace,Consolas,monospace;font-size:11px;color:var(--muted);
+    max-height:110px;overflow:auto;white-space:pre-wrap}
+  .confirm-actions{display:flex;gap:8px}
+  .confirm-actions button{padding:6px 14px}
+
+  .aside-input{flex:0 0 auto;display:flex;gap:8px;align-items:flex-end;
+    padding:11px 14px;border-top:1px solid var(--border)}
+  .aside-input textarea{flex:1;resize:none}
+
+  /* ---------- Diff 视图 ---------- */
+  .diffwrap{margin-top:8px;border:1px solid var(--border);border-radius:8px;overflow:hidden}
+  .diffhead{display:flex;gap:10px;padding:5px 10px;background:var(--panel-2);
+    font-size:11px;color:var(--muted)}
+  .diffhead .add{color:var(--ok)}
+  .diffhead .del{color:var(--danger)}
+  .diffbody{max-height:340px;overflow:auto;font-family:ui-monospace,Consolas,monospace;font-size:11px}
+  .diffgrid{display:grid;grid-template-columns:1fr 1fr}
+  .diffcell{display:flex;white-space:pre;min-height:1.5em}
+  .diffcell .ln{flex:0 0 34px;text-align:right;padding-right:7px;color:#5a6272;
+    user-select:none;border-right:1px solid var(--border)}
+  .diffcell .code{padding-left:8px;overflow-wrap:anywhere;white-space:pre-wrap;flex:1;min-width:0}
+  .diffcell.ADDED{background:rgba(62,207,142,.12)}
+  .diffcell.REMOVED{background:rgba(255,107,107,.12)}
+  .diffcell.ADDED .code{color:#8ff0c0}
+  .diffcell.REMOVED .code{color:#ffb3b3}
+  .diffcell.EMPTY{background:#12141a}
+
+  .changes{margin:8px 0 0;padding-left:18px;font-size:12px}
+  .changes li{margin:2px 0}
+  .asmall{font-size:11px;color:var(--muted);margin-top:6px}
+
+  button{background:var(--panel-2);color:var(--fg);border:1px solid var(--border);
+    border-radius:7px;padding:8px 14px;cursor:pointer;font-size:13px;transition:.15s}
+  button:hover{border-color:var(--accent);color:#fff}
+  button.primary{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:600}
+  button.primary:hover{filter:brightness(1.1)}
+  button.ghost{background:transparent}
+  button.danger:hover{border-color:var(--danger);color:var(--danger)}
+  input,textarea,select{width:100%;background:var(--bg);color:var(--fg);
+    border:1px solid var(--border);border-radius:7px;padding:9px 11px;font-size:13px;
+    font-family:inherit;outline:none}
+  input:focus,textarea:focus,select:focus{border-color:var(--accent)}
+  textarea{resize:vertical;font-family:ui-monospace,SFMono-Regular,Consolas,monospace}
+  label{display:block;font-size:12px;color:var(--muted);margin:12px 0 5px}
+  .row{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end}
+  .row > *{flex:1;min-width:130px}
+  .field-error{color:var(--danger);font-size:12px;margin-top:4px;min-height:16px}
+  .toast{position:fixed;right:20px;bottom:20px;background:var(--panel-2);
+    border:1px solid var(--border);border-left:3px solid var(--accent);
+    padding:11px 16px;border-radius:7px;font-size:13px;opacity:0;
+    transform:translateY(8px);transition:.2s;pointer-events:none;max-width:340px}
+  .toast.show{opacity:1;transform:none}
+  .toast.error{border-left-color:var(--danger)}
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:14px;margin-top:18px}
+  .snippet{background:var(--panel);border:1px solid var(--border);border-radius:10px;
+    padding:14px;display:flex;flex-direction:column;gap:9px}
+  .snippet h3{margin:0;font-size:14px;font-weight:600;overflow-wrap:anywhere}
+  .snippet pre{margin:0;background:var(--bg);border:1px solid var(--border);border-radius:6px;
+    padding:9px;max-height:130px;overflow:auto;font-size:12px;
+    font-family:ui-monospace,SFMono-Regular,Consolas,monospace;white-space:pre-wrap;
+    overflow-wrap:anywhere;color:#c9d1d9}
+  .meta{display:flex;gap:8px;flex-wrap:wrap;align-items:center;font-size:11px;color:var(--muted)}
+  .pill{background:var(--panel-2);border:1px solid var(--border);border-radius:999px;
+    padding:2px 9px;font-size:11px}
+  .pill.lang{color:var(--warn);border-color:#3a3222}
+  .summary{font-size:12px;color:var(--muted);font-style:italic}
+  .actions{display:flex;gap:7px;margin-top:auto;padding-top:8px;border-top:1px solid var(--border)}
+  .actions button{padding:5px 10px;font-size:12px}
+  .empty{text-align:center;color:var(--muted);padding:48px 0}
+  .pager{display:flex;gap:7px;justify-content:center;align-items:center;margin-top:22px}
+  .pager button{padding:6px 11px}
+  .pager .current{color:var(--accent);font-weight:600}
+  /* auth */
+  #authView{max-width:400px;margin:70px auto}
+  .tabs{display:flex;gap:6px;margin-bottom:16px}
+  .tabs button{flex:1}
+  .tabs button.active{background:var(--accent);border-color:var(--accent);color:#fff}
+  /* ask */
+  #askPanel{background:var(--panel);border:1px solid var(--border);border-radius:10px;
+    padding:18px;margin-bottom:18px}
+  #answer{white-space:pre-wrap;overflow-wrap:anywhere;margin-top:12px;padding:12px;
+    background:var(--bg);border:1px solid var(--border);border-radius:7px;
+    font-size:13px;display:none}
+  #answer.notice{border-color:#4a3520;background:#241d12;color:var(--warn)}
+  /* Answer is rendered here rather than in #answer: this container has no
+     stylesheet-controlled visibility, so it cannot be hidden by a stale cache. */
+  .answer-panel{white-space:pre-wrap;overflow-wrap:anywhere;margin-bottom:10px;padding:12px;
+    background:var(--bg);border:1px solid var(--border);border-radius:7px;font-size:13px}
+  .answer-panel.notice{border-color:#4a3520;background:#241d12;color:var(--warn)}
+  .answer-panel.error{border-color:#4a2020;background:#241414;color:var(--danger)}
+  #answer.error{border-color:#4a2020;background:#241414;color:var(--danger)}
+  #citations{margin-top:10px;display:flex;gap:7px;flex-wrap:wrap}
+  /* Agent run trace: makes it visible that the AI called business tools rather
+     than merely chatting. */
+  #agentTrace{margin-top:10px;display:flex;flex-direction:column;gap:4px}
+  .trace-step{font-size:11px;color:var(--muted);background:var(--panel-2);
+    border:1px solid var(--border);border-left:3px solid var(--accent);
+    border-radius:5px;padding:4px 9px;overflow-wrap:anywhere}
+  .trace-step.tool{border-left-color:var(--ok)}
+  .trace-step .toolname{color:var(--ok);font-weight:600}
+  .confirm-box{margin-top:10px;padding:12px;border:1px solid #4a3520;background:#241d12;
+    border-radius:8px;display:flex;flex-direction:column;gap:9px}
+  .confirm-box .what{color:var(--warn);font-size:13px;font-weight:600}
+  .confirm-box .args{font-family:ui-monospace,Consolas,monospace;font-size:11px;
+    color:var(--muted);max-height:120px;overflow:auto;white-space:pre-wrap}
+  .confirm-actions{display:flex;gap:8px}
+  .confirm-actions button{padding:6px 14px}
+  .cite{background:var(--panel-2);border:1px solid var(--border);border-radius:6px;
+    padding:5px 10px;font-size:11px;cursor:pointer}
+  .cite:hover{border-color:var(--accent)}
+  .badge{font-size:11px;padding:2px 8px;border-radius:999px;
+    background:#3a2a1a;color:var(--warn);border:1px solid #4a3520}
+  /* modal */
+  .overlay{position:fixed;inset:0;background:rgba(0,0,0,.65);display:none;
+    align-items:center;justify-content:center;padding:20px;z-index:100}
+  .overlay.show{display:flex}
+  .modal{background:var(--panel);border:1px solid var(--border);border-radius:12px;
+    padding:22px;width:100%;max-width:680px;max-height:88vh;overflow:auto}
+  .modal h2{margin:0 0 4px;font-size:16px}
+  .hint{color:var(--muted);font-size:12px;margin-bottom:14px}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand">Code<span>Box</span></div>
+  <div class="pill">Spring Boot 3 · DeepSeek · RAG</div>
+  <div class="grow"></div>
+  <div class="who" id="whoami"></div>
+  <button class="ghost" id="logoutBtn" style="display:none">退出</button>
+</header>
+
+<!-- ============ auth view ============ -->
+<div id="authView">
+  <div class="card">
+    <div class="tabs">
+      <button id="tabLogin" class="active">登录</button>
+      <button id="tabRegister">注册</button>
+    </div>
+
+    <form id="loginForm">
+      <label>用户名</label>
+      <input name="username" autocomplete="username" required>
+      <label>密码</label>
+      <input name="password" type="password" autocomplete="current-password" required>
+      <div class="field-error" id="loginError"></div>
+      <button class="primary" style="width:100%">登录</button>
+    </form>
+
+    <form id="registerForm" style="display:none">
+      <label>用户名（3-50 字符）</label>
+      <input name="username" autocomplete="username" required>
+      <label>密码（至少 8 位）</label>
+      <input name="password" type="password" autocomplete="new-password" required>
+      <label>邮箱</label>
+      <input name="email" type="email" autocomplete="email" required>
+      <div class="field-error" id="registerError"></div>
+      <button class="primary" style="width:100%">注册</button>
+    </form>
+
+    <p class="hint" style="margin-top:14px">
+      演示账号 <b>demo</b> / <b>codebox123</b>
+    </p>
+  </div>
+</div>
+
+<!-- ============ app view ============ -->
+<main id="appView" style="display:none">
+
+  <div class="workspace">
+
+    <!-- ================= 左：业务区（代码库） ================= -->
+    <section class="work-main">
+
+      <div class="card">
+        <div class="row">
+          <div style="flex:2">
+            <label style="margin-top:0">关键词</label>
+            <input id="fKeyword" placeholder="标题 / 内容 / 摘要 / 标签">
+          </div>
+          <div>
+            <label style="margin-top:0">语言</label>
+            <select id="fLanguage">
+              <option value="">全部</option>
+            </select>
+          </div>
+          <div>
+            <label style="margin-top:0">标签</label>
+            <input id="fTags" placeholder="如：分页">
+          </div>
+          <div style="flex:0 0 auto;display:flex;gap:8px">
+            <button class="primary" id="searchBtn">搜索</button>
+            <button id="resetBtn">重置</button>
+          </div>
+          <div style="flex:0 0 auto">
+            <button class="primary" id="newBtn">+ 新增</button>
+          </div>
+        </div>
+      </div>
+
+      <div id="listWrap">
+        <div class="grid" id="grid"></div>
+        <div class="pager" id="pager"></div>
+        <div class="empty" id="emptyState" style="display:none">还没有代码片段，点「+ 新增」开始沉淀</div>
+      </div>
+    </section>
+
+    <!-- 拖动条：左右比例可调 -->
+    <div id="resizer" class="resizer" title="拖动调整宽度"></div>
+
+    <!-- ================= 右：AI 助手（默认三成，可拖动） ================= -->
+    <aside class="work-aside" id="workAside">
+      <header class="aside-head">
+        <span class="aside-title">AI 助手</span>
+        <span class="aside-sub">能查 · 能分析 · 能优化 · 能保存</span>
+        <button class="ghost small" id="clearThreadBtn" title="清空本次对话">清空</button>
+        <button class="ghost small" id="reindexBtn" title="直接导入数据库的片段没有向量，检索不到时点这里重建索引">重建索引</button>
+      </header>
+
+      <div class="thread" id="thread">
+        <div class="hint-box">
+          试试这样说：<br>
+          · 帮我找一下之前的 MyBatis 分页代码<br>
+          · 打开第一条并分析它<br>
+          · 帮我优化一下，然后保存这个版本
+        </div>
+      </div>
+
+      <div class="aside-input">
+        <textarea id="askInput" rows="2" placeholder="用一句话描述你要做什么，Enter 发送 / Shift+Enter 换行"></textarea>
+        <button class="primary" id="askBtn">发送</button>
+      </div>
+    </aside>
+  </div>
+</main>
+
+<!-- ============ editor modal ============ -->
+<div class="overlay" id="editorOverlay">
+  <div class="modal">
+    <h2 id="editorTitle">新增代码片段</h2>
+    <p class="hint" id="editorHint">
+      保存时 DeepSeek 会自动补全标签和一句话摘要；你手动填写的标签不会被覆盖。
+    </p>
+    <form id="snippetForm">
+      <input type="hidden" id="snippetId">
+      <label>标题</label>
+      <input id="sTitle" maxlength="100" required>
+      <div class="field-error" id="titleError"></div>
+
+      <label>语言</label>
+      <select id="sLanguage"></select>
+      <div class="field-error" id="languageError"></div>
+
+      <label>标签（留空则由 AI 生成，多个用英文逗号分隔）</label>
+      <input id="sTags" maxlength="200" placeholder="如：MyBatis,分页">
+
+      <label>代码</label>
+      <textarea id="sContent" rows="12" required></textarea>
+      <div class="field-error" id="contentError"></div>
+
+      <div class="row" style="margin-top:16px">
+        <button type="button" class="primary" id="saveBtn">保存</button>
+        <button type="button" id="cancelBtn">取消</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script src="/legacy-app.js?v=2.2.1"></script>
+</body>
+</html>

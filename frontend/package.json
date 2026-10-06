@@ -1,0 +1,20 @@
+{
+  "name": "codebox-frontend",
+  "private": true,
+  "version": "3.0.0",
+  "type": "module",
+  "description": "CodeBox 前端（Vue 3 + Vite）。构建产物输出到 Spring Boot 的 static 目录。",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "test": "node test/utils.test.js"
+  },
+  "dependencies": {
+    "vue": "^3.5.13"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-vue": "^5.2.1",
+    "vite": "^6.0.7"
+  }
+}

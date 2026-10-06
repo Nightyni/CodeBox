@@ -1,4 +1,6 @@
 target/
+frontend/node_modules/
+frontend/.npm-cache/
 .legacy-ssm/
 .verify/
 .resume/
