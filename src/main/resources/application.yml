@@ -26,9 +26,8 @@ spring:
       write-dates-as-timestamps: false
   sql:
     init:
-      # Seed scripts contain Chinese text. Without an explicit encoding they are
-      # read with the platform default charset (GBK on Chinese Windows), which
-      # silently stores mojibake in the database.
+      mode: always
+      schema-locations: classpath:db/init-mysql.sql
       encoding: UTF-8
 
 mybatis:

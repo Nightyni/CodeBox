@@ -17,7 +17,6 @@ onMounted(() => store.boot());
       <div class="brand">Code<span>Box</span></div>
       <div class="pill">Vue 3 · Spring Boot 3 · DeepSeek · Tool Calling</div>
       <div class="grow"></div>
-      <a class="legacy-link" href="/legacy.html" title="旧版原生 JS 界面">旧版界面</a>
       <div class="who">已登录：{{ store.user.username }}</div>
       <button class="ghost" @click="store.logout()">退出</button>
     </header>

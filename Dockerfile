@@ -9,14 +9,17 @@ WORKDIR /fe
 
 # Copy manifests first so dependency installation is cached independently of sources.
 COPY frontend/package.json frontend/package-lock.json* ./
+
 # --ignore-scripts is safe here: vite's esbuild binary ships via
 # optionalDependencies rather than a postinstall download.
 RUN npm install --no-audit --no-fund --ignore-scripts
 
 COPY frontend/ ./
+
 # Build into /static-out rather than the configured ../src/... path, because the
 # backend sources are not present in this stage.
 RUN npx vite build --outDir /static-out --emptyOutDir
+
 
 # ---------------------------------------------------------------------------
 # Stage 2: build the executable jar
@@ -25,13 +28,16 @@ FROM maven:3.9-eclipse-temurin-21 AS backend
 WORKDIR /build
 
 COPY pom.xml .
-RUN mvn -B -q dependency:go-offline
 
 COPY src ./src
+
 # Drop in the prebuilt frontend (this also provides the Vue index.html).
 COPY --from=frontend /static-out/ ./src/main/resources/static/
 
+# Build the Spring Boot executable jar.
+# Maven will download the required dependencies during the build.
 RUN mvn -B -q clean package -DskipTests
+
 
 # ---------------------------------------------------------------------------
 # Stage 3: minimal runtime
@@ -41,8 +47,11 @@ WORKDIR /app
 
 # Run as a non-root user.
 RUN addgroup -S codebox && adduser -S codebox -G codebox
+
 COPY --from=backend /build/target/codebox.jar app.jar
+
 RUN chown -R codebox:codebox /app
+
 USER codebox
 
 EXPOSE 8080

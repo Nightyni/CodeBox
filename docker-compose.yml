@@ -41,7 +41,7 @@ services:
       CODEBOX_EMBEDDING_BASE_URL: ${CODEBOX_EMBEDDING_BASE_URL:-}
       CODEBOX_EMBEDDING_API_KEY: ${CODEBOX_EMBEDDING_API_KEY:-}
     ports:
-      - "8080:8080"
+      - "3389:8080"
     restart: unless-stopped
 
 volumes:

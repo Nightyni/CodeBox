@@ -91,6 +91,62 @@ class UpdateSnippetToolTest extends AgentToolTestSupport {
     }
 
     @Test
+    @DisplayName("over-long title is rejected before hitting the database")
+    void overLongTitleIsRejected() {
+        givenOwned(snippet(5L, "原标题", "原代码", "Java"));
+
+        ToolResult r = tool.execute(
+                "{\"id\":5,\"title\":\"" + "x".repeat(101) + "\"}",
+                CONTEXT);
+
+        assertThat(r.success()).isFalse();
+        assertThat(r.text()).contains("100");
+        verify(snippetMapper, never()).update(any());
+    }
+
+    @Test
+    @DisplayName("over-long content is rejected before hitting the database")
+    void overLongContentIsRejected() {
+        givenOwned(snippet(5L, "原标题", "原代码", "Java"));
+
+        ToolResult r = tool.execute(
+                "{\"id\":5,\"content\":\"" + "x".repeat(20001) + "\"}",
+                CONTEXT);
+
+        assertThat(r.success()).isFalse();
+        assertThat(r.text()).contains("20000");
+        verify(snippetMapper, never()).update(any());
+    }
+
+    @Test
+    @DisplayName("over-long language is rejected before hitting the database")
+    void overLongLanguageIsRejected() {
+        givenOwned(snippet(5L, "原标题", "原代码", "Java"));
+
+        ToolResult r = tool.execute(
+                "{\"id\":5,\"language\":\"" + "x".repeat(31) + "\"}",
+                CONTEXT);
+
+        assertThat(r.success()).isFalse();
+        assertThat(r.text()).contains("30");
+        verify(snippetMapper, never()).update(any());
+    }
+
+    @Test
+    @DisplayName("over-long tags are rejected before hitting the database")
+    void overLongTagsIsRejected() {
+        givenOwned(snippet(5L, "原标题", "原代码", "Java"));
+
+        ToolResult r = tool.execute(
+                "{\"id\":5,\"tags\":\"" + "x".repeat(201) + "\"}",
+                CONTEXT);
+
+        assertThat(r.success()).isFalse();
+        assertThat(r.text()).contains("200");
+        verify(snippetMapper, never()).update(any());
+    }
+
+    @Test
     @DisplayName("a blank title in the arguments falls back to the existing one")
     void blankTitleFallsBackToExisting() {
         givenOwned(snippet(5L, "原标题", "原代码", "Java"));

@@ -38,7 +38,7 @@ const props = defineProps({
 </template>
 
 <style scoped>
-.diffwrap { border: 1px solid var(--border); border-radius: 7px; overflow: hidden; margin-top: 6px; }
+.diffwrap { border: 1px solid var(--border); border-radius: 7px; overflow: hidden; margin-top: 6px; flex: 0 0 auto;}
 .diffhead { display: flex; gap: 10px; padding: 5px 10px; background: var(--panel-2); font-size: 11px; }
 .diffhead .add { color: var(--ok); }
 .diffhead .del { color: var(--danger); }

@@ -223,7 +223,7 @@ class SnippetAgentTest {
                 .thenReturn(stored);
         when(pendingService.toView(eq(stored), anyString()))
                 .thenReturn(new com.codebox.agent.dto.PendingActionView(
-                        42L, "delete_snippet", "准备删除代码片段 id=7", "{\"id\":7}", "2026-01-01T00:00"));
+                        42L, "delete_snippet", "准备删除代码片段 id=7", "2026-01-01T00:00"));
 
         var model = new ScriptedChatModel()
                 .enqueue(AssistantTurn.tools(List.of(call("delete_snippet", "{\"id\":7}"))));

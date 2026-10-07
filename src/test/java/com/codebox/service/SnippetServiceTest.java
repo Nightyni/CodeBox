@@ -155,7 +155,9 @@ class SnippetServiceTest {
         when(mapper.delete(5L, 1L)).thenReturn(1);
 
         assertThat(service.delete(1L, 5L)).isTrue();
-        verify(retrieval).remove(5L);
+
+        // remove now requires both userId and snippetId
+        verify(retrieval).remove(1L, 5L);
     }
 
     @Test
@@ -164,6 +166,8 @@ class SnippetServiceTest {
         when(mapper.delete(5L, 1L)).thenReturn(0);
 
         assertThat(service.delete(1L, 5L)).isFalse();
-        verify(retrieval, never()).remove(anyLong());
+
+        // remove must not be called when DB deletion failed
+        verify(retrieval, never()).remove(anyLong(), anyLong());
     }
 }

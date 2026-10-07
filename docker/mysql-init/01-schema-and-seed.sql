@@ -9,6 +9,8 @@
 --
 -- Demo login: demo / codebox123   (BCrypt hash, cost 10)
 -- =====================================================================
+SET NAMES utf8mb4;
+
 CREATE TABLE IF NOT EXISTS users (
   id          BIGINT PRIMARY KEY AUTO_INCREMENT,
   username    VARCHAR(50)  NOT NULL UNIQUE,
@@ -124,7 +126,7 @@ INSERT INTO code_snippet (user_id, title, content, language, tags) VALUES
 INSERT INTO code_snippet (user_id, title, content, language, tags) VALUES
   (@demo_user_id, 'Docker 基础命令', 'docker build -t myapp:latest .\\ndocker run -d -p 8080:8080 --name myapp myapp:latest\\ndocker logs -f myapp\\ndocker exec -it myapp /bin/bash\\ndocker stop myapp\\ndocker rm myapp', 'Docker', '容器,DevOps');
 INSERT INTO code_snippet (user_id, title, content, language, tags) VALUES
-  (@demo_user_id, 'Git 常用命令', 'git checkout -b feature/new-feature\\ngit branch -d old-branch\\ngit log --oneline --graph\\ngit commit --amend -m "修正提交信息"\\ngit reset --soft HEAD~1\\ngit reset --hard HEAD~1\\ngit stash save "临时保存"\\ngit stash pop\\ngit merge feature --no-ff', 'Git', '版本控制,命令');
+  (@demo_user_id, 'Git 常用命令', 'git checkout -b feature/new-feature\ngit branch -d old-branch\ngit log --oneline --graph\ngit commit --amend -m "修正提交信息"\ngit reset --soft HEAD~1\ngit reset --hard HEAD~1\ngit stash save "临时保存"\ngit stash pop\ngit merge feature --no-ff', 'Git', '版本控制,命令');
 
 SELECT COUNT(*) AS total_users    FROM users;
 SELECT COUNT(*) AS total_snippets FROM code_snippet;

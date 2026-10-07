@@ -115,7 +115,6 @@ public class PendingActionService {
                 action.getId(),
                 action.getToolName(),
                 summary,
-                action.getArguments(),
                 action.getExpiresAt() == null ? null : action.getExpiresAt().toString());
     }
 }

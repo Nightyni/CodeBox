@@ -78,6 +78,10 @@ public class UpdateSnippetTool implements AgentTool {
         if (title.isBlank()) return ToolResult.error("title 不能为空");
         if (content.isBlank()) return ToolResult.error("content 不能为空");
         if (language.isBlank()) return ToolResult.error("language 不能为空");
+        if (title.length() > 100) return ToolResult.error("title 超过 100 字");
+        if (content.length() > 20000) return ToolResult.error("content 超过 20000 字");
+        if (language.length() > 30) return ToolResult.error("language 超过 30 字");
+        if (tags != null && tags.length() > 200) return ToolResult.error("tags 超过 200 字");
 
         SnippetRequest request = new SnippetRequest();
         request.setTitle(title.strip());

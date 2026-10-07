@@ -83,7 +83,9 @@ class CreateSnippetToolTest extends AgentToolTestSupport {
     @DisplayName("over-long title is rejected before hitting the database")
     void overLongTitleIsRejected() {
         String payload = json(java.util.Map.of(
-                "title", "x".repeat(101), "content", "c", "language", "Java"));
+                "title", "x".repeat(101),
+                "content", "c",
+                "language", "Java"));
 
         ToolResult r = tool.execute(payload, CONTEXT);
 
@@ -96,7 +98,9 @@ class CreateSnippetToolTest extends AgentToolTestSupport {
     @DisplayName("over-long content is rejected before hitting the database")
     void overLongContentIsRejected() {
         String payload = json(java.util.Map.of(
-                "title", "t", "content", "y".repeat(20001), "language", "Java"));
+                "title", "t",
+                "content", "y".repeat(20001),
+                "language", "Java"));
 
         ToolResult r = tool.execute(payload, CONTEXT);
 
@@ -106,9 +110,42 @@ class CreateSnippetToolTest extends AgentToolTestSupport {
     }
 
     @Test
+    @DisplayName("over-long language is rejected before hitting the database")
+    void overLongLanguageIsRejected() {
+        String payload = json(java.util.Map.of(
+                "title", "t",
+                "content", "c",
+                "language", "x".repeat(31)));
+
+        ToolResult r = tool.execute(payload, CONTEXT);
+
+        assertThat(r.success()).isFalse();
+        assertThat(r.text()).contains("30");
+        verify(snippetMapper, never()).insert(any());
+    }
+
+    @Test
+    @DisplayName("over-long tags are rejected before hitting the database")
+    void overLongTagsIsRejected() {
+        String payload = json(java.util.Map.of(
+                "title", "t",
+                "content", "c",
+                "language", "Java",
+                "tags", "x".repeat(201)));
+
+        ToolResult r = tool.execute(payload, CONTEXT);
+
+        assertThat(r.success()).isFalse();
+        assertThat(r.text()).contains("200");
+        verify(snippetMapper, never()).insert(any());
+    }
+
+    @Test
     @DisplayName("a wrong JSON type for a field is rejected, not silently coerced")
     void wrongTypeIsRejected() {
-        ToolResult r = fail("{\"title\":{\"nested\":1},\"content\":\"c\",\"language\":\"Java\"}", tool);
+        ToolResult r = fail(
+                "{\"title\":{\"nested\":1},\"content\":\"c\",\"language\":\"Java\"}",
+                tool);
 
         // title becomes something like "{nested=1}" via toString, which is not blank,
         // so the important guarantee is that it does not crash and writes at most once
@@ -139,7 +176,9 @@ class CreateSnippetToolTest extends AgentToolTestSupport {
     @DisplayName("title is trimmed before saving")
     void titleIsTrimmed() {
         tool.execute(json(java.util.Map.of(
-                "title", "  spaced  ", "content", "c", "language", "Java")), CONTEXT);
+                "title", "  spaced  ",
+                "content", "c",
+                "language", "Java")), CONTEXT);
 
         ArgumentCaptor<Snippet> captor = ArgumentCaptor.forClass(Snippet.class);
         verify(snippetMapper).insert(captor.capture());
@@ -150,7 +189,9 @@ class CreateSnippetToolTest extends AgentToolTestSupport {
     @DisplayName("the new snippet is indexed so it is immediately searchable")
     void newSnippetIsIndexed() {
         tool.execute(json(java.util.Map.of(
-                "title", "t", "content", "c", "language", "Java")), CONTEXT);
+                "title", "t",
+                "content", "c",
+                "language", "Java")), CONTEXT);
 
         verify(embeddingMapper, org.mockito.Mockito.atLeastOnce())
                 .upsert(any(com.codebox.entity.SnippetEmbedding.class));
@@ -160,7 +201,9 @@ class CreateSnippetToolTest extends AgentToolTestSupport {
     @DisplayName("tags are optional")
     void tagsAreOptional() {
         ToolResult r = tool.execute(json(java.util.Map.of(
-                "title", "t", "content", "c", "language", "Java")), CONTEXT);
+                "title", "t",
+                "content", "c",
+                "language", "Java")), CONTEXT);
 
         assertThat(r.success()).isTrue();
     }
@@ -169,7 +212,10 @@ class CreateSnippetToolTest extends AgentToolTestSupport {
     @DisplayName("a userId inside the arguments cannot redirect the write")
     void userIdInArgumentsIsIgnored() {
         tool.execute(json(new java.util.LinkedHashMap<>(java.util.Map.of(
-                "title", "t", "content", "c", "language", "Java", "userId", 999L))), CONTEXT);
+                "title", "t",
+                "content", "c",
+                "language", "Java",
+                "userId", 999L))), CONTEXT);
 
         ArgumentCaptor<Snippet> captor = ArgumentCaptor.forClass(Snippet.class);
         verify(snippetMapper).insert(captor.capture());

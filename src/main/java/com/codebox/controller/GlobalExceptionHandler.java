@@ -6,6 +6,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
@@ -36,6 +37,20 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(IllegalArgumentException.class)
     public ResponseEntity<Map<String, Object>> handleIllegalArgument(IllegalArgumentException e) {
         return ResponseEntity.badRequest().body(error(HttpStatus.BAD_REQUEST.value(), e.getMessage()));
+    }
+
+    /**
+     * A missing static resource is a 404, not a server fault.
+     *
+     * Without this, the catch-all below swallowed it and logged a full stack trace at
+     * ERROR for every /favicon.ico request - which is the kind of noise that hides a
+     * real error when it finally happens.
+     */
+    @ExceptionHandler(NoResourceFoundException.class)
+    public ResponseEntity<Map<String, Object>> handleMissingResource(NoResourceFoundException e) {
+        log.debug("Resource not found: {}", e.getResourcePath());
+        return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                .body(error(HttpStatus.NOT_FOUND.value(), "资源不存在"));
     }
 
     /** Never leak stack traces or SQL to the client. */

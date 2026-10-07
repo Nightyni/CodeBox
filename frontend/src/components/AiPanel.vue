@@ -188,7 +188,6 @@ function onKeydown(e) {
         <!-- 写操作确认 -->
         <div v-if="turn.pending" class="confirm">
           <div class="what">需要你确认：{{ turn.pending.summary }}</div>
-          <div class="args">{{ turn.pending.arguments }}</div>
           <div class="confirm-actions">
             <button class="primary" :disabled="busy" @click="resolvePending(turn, true)">确认执行</button>
             <button :disabled="busy" @click="resolvePending(turn, false)">取消</button>

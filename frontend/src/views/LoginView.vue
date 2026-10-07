@@ -3,7 +3,7 @@ import { ref } from 'vue';
 import { store } from '../store.js';
 
 const mode = ref('login');
-const loginForm = ref({ username: 'demo', password: 'codebox123' });
+const loginForm = ref({ username: 'demo', password: '123456' });
 const registerForm = ref({ username: '', password: '', email: '' });
 const error = ref('');
 const fieldErrors = ref({});
